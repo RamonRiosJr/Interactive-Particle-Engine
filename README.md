@@ -6,9 +6,7 @@ A high-performance, web-based particle physics simulation built with **Vanilla J
 
 **🚀 Live Demo**
 
-&lt;!-- Replace this link with your Github Pages URL or deployment link --&gt;
-
-[View Live Demo](https://www.google.com/search?q=%23)
+Coming Soon!
 
 **📋 Overview**
 
@@ -52,7 +50,7 @@ This project relies on **no external framework dependencies** for the core logic
 **📦 Installation & Usage**
 
 - **Clone the repository:**
-- git clone \[<https://github.com/yourusername/particle-engine.git\>](<https://github.com/yourusername/particle-engine.git>)
+- git clone Coming Soon!
 - **Open the project:** Simply open index.html in any modern web browser. No build step or server is required.
 
 **🔧 Code Structure**

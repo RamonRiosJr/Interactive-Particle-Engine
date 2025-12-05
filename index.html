@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Particle Engine | Portfolio Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #e2e8f0; /* Slate 200 */
+            overflow: hidden;
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        .canvas-bg {
+            background-image: 
+                linear-gradient(45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(-45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #1e293b 75%), 
+                linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col md:flex-row">
+
+    <!-- Sidebar Controls -->
+    <aside class="w-full md:w-80 bg-slate-800 border-r border-slate-700 flex flex-col shadow-xl z-10 shrink-0">
+        <div class="p-6 border-b border-slate-700">
+            <h1 class="text-xl font-bold text-white tracking-tight">Particle Engine <span class="text-blue-400">v1.2</span></h1>
+            <p class="text-xs text-slate-400 mt-1">Multi-Element Physics Simulation</p>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+            
+            <!-- New Element Type Selection -->
+            <div class="space-y-3">
+                <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Element Type</h3>
+                <select id="element-type" class="w-full bg-slate-700 text-white rounded-md p-2 text-sm border border-slate-600 focus:outline-none focus:border-blue-400 transition-colors">
+                    <option value="water">Water</option>
+                    <option value="lava">Lava</option>
+                    <option value="acid">Acid</option>
+                </select>
+            </div>
+
+            <!-- Physics Group -->
+            <div class="space-y-3">
+                <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Physics</h3>
+                
+                <div>
+                    <label class="flex justify-between text-sm mb-1">
+                        Gravity <span id="val-gravity" class="text-blue-400">0.5</span>
+                    </label>
+                    <input type="range" id="gravity" min="-1" max="2" step="0.1" value="0.5" class="w-full accent-blue-500 h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer">
+                </div>
+
+                <div>
+                    <label class="flex justify-between text-sm mb-1">
+                        Velocity <span id="val-velocity" class="text-blue-400">5</span>
+                    </label>
+                    <input type="range" id="velocity" min="1" max="20" step="1" value="5" class="w-full accent-blue-500 h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer">
+                </div>
+
+                <div>
+                    <label class="flex justify-between text-sm mb-1">
+                        Wind (X-Axis) <span id="val-wind" class="text-blue-400">0</span>
+                    </label>
+                    <input type="range" id="wind" min="-5" max="5" step="0.5" value="0" class="w-full accent-blue-500 h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer">
+                </div>
+            </div>
+
+            <!-- Appearance Group -->
+            <div class="space-y-3">
+                <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Appearance</h3>
+                
+                <!-- Color picker removed as color is now controlled by Element Type -->
+
+                <div>
+                    <label class="flex justify-between text-sm mb-1">
+                        Size Scale <span id="val-size" class="text-blue-400">1.0</span>
+                    </label>
+                    <input type="range" id="size" min="0.5" max="2.5" step="0.1" value="1.0" class="w-full accent-blue-500 h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer">
+                </div>
+                
+                <div>
+                    <label class="flex justify-between text-sm mb-1">
+                        Spread <span id="val-spread" class="text-blue-400">3</span>
+                    </label>
+                    <input type="range" id="spread" min="0" max="10" step="0.5" value="3" class="w-full accent-blue-500 h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer">
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="pt-4 border-t border-slate-700">
+                <button id="clear-btn" class="w-full py-2 px-4 bg-slate-700 hover:bg-slate-600 text-white rounded-md text-sm font-medium transition-colors mb-3">
+                    Clear All Emitters
+                </button>
+                <button id="export-btn" class="w-full py-2 px-4 bg-blue-600 hover:bg-blue-500 text-white rounded-md text-sm font-medium transition-colors shadow-lg shadow-blue-900/50">
+                    Export Config (JSON)
+                </button>
+            </div>
+        </div>
+
+        <div class="p-4 bg-slate-900 text-xs text-slate-500 border-t border-slate-700">
+            Click on the canvas area to spawn particles.
+        </div>
+    </aside>
+
+    <!-- Main Canvas Area -->
+    <main class="flex-1 relative bg-black canvas-bg overflow-hidden flex items-center justify-center p-4">
+        <!-- We use min-w/min-h to ensure the stage exists even if image fails -->
+        <div id="stage" class="relative shadow-2xl rounded-sm overflow-hidden border border-slate-700" style="min-width: 800px; min-height: 600px;">
+            <!-- Placeholder logic added -->
+            <img id="bg-image" src="images.webp" 
+                 class="absolute top-0 left-0 w-full h-full object-contain pointer-events-none select-none z-0" 
+                 alt="Simulation Background"
+                 onerror="this.style.display='none'"> 
+            <canvas id="particle-canvas" class="relative z-10 w-full h-full cursor-crosshair"></canvas>
+        </div>
+        
+        <!-- Toast Notification -->
+        <div id="toast" class="absolute bottom-8 right-8 bg-emerald-600 text-white px-4 py-2 rounded shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none z-50">
+            Configuration Exported to Console!
+        </div>
+    </main>
+
+    <script>
+        /**
+         * Particle Engine Logic v1.2
+         * - Added Multi-Element support (Water, Lava, Acid)
+         * - Each element has unique physical properties and visual effects
+         */
+
+        // Configuration State
+        const config = {
+            element: 'water',
+            gravity: 0.5,
+            velocity: 5,
+            wind: 0,
+            size: 1.0, // Now a scale factor
+            spread: 3
+        };
+
+        // Element-specific profiles
+        const elementProfiles = {
+            water: {
+                colors: ['#00bfff', '#00a8e8', '#0091cc', '#89CFF0'],
+                baseSize: 6,
+                gravityMod: 1,
+                lifeMod: 1,
+                hasGlow: false
+            },
+            lava: {
+                colors: ['#ff4500', '#ff6347', '#ff8c00', '#ffd700'],
+                baseSize: 8,
+                gravityMod: 0.4, // Floaty
+                lifeMod: 1.2,
+                hasGlow: true,
+                glowColor: '#ff4500'
+            },
+            acid: {
+                colors: ['#32CD32', '#7FFF00', '#ADFF2F', '#00FF00'],
+                baseSize: 5,
+                gravityMod: 1.1, // Slightly heavier
+                lifeMod: 0.9,
+                hasGlow: true,
+                glowColor: '#32CD32'
+            }
+        };
+
+        // DOM Elements
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        const stage = document.getElementById('stage');
+        const bgImage = document.getElementById('bg-image');
+        
+        // State
+        let width, height;
+        let particles = [];
+        let emitters = [];
+        let animationId;
+
+        // --- Classes ---
+
+        class Emitter {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.id = Date.now() + Math.random();
+                this.elementType = config.element; // Store type at creation
+            }
+
+            emit() {
+                // Emit rate - increased for visibility
+                const count = 3; 
+                for(let i = 0; i < count; i++) {
+                    particles.push(new Particle(this.x, this.y, this.elementType));
+                }
+            }
+
+            drawDebug(context) {
+                // Draw a small crosshair where the emitter is
+                context.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                context.lineWidth = 1;
+                context.beginPath();
+                context.moveTo(this.x - 5, this.y);
+                context.lineTo(this.x + 5, this.y);
+                context.moveTo(this.x, this.y - 5);
+                context.lineTo(this.x, this.y + 5);
+                context.stroke();
+            }
+        }
+
+        class Particle {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                const profile = elementProfiles[type];
+                
+                // Physics based on current config + randomness
+                const angle = (Math.random() * Math.PI * 2); 
+                const speed = Math.random() * config.spread; 
+                
+                this.vx = Math.cos(angle) * speed + (Math.random() - 0.5); 
+                this.vy = Math.sin(angle) * speed - config.velocity * 0.5; 
+                
+                this.life = 1.0 * profile.lifeMod;
+                this.decay = (Math.random() * 0.01 + 0.005) / profile.lifeMod;
+                
+                // Pick a random color from the profile palette
+                this.color = profile.colors[Math.floor(Math.random() * profile.colors.length)];
+                
+                // Calculate base size, then apply user's scale factor, then random variation
+                let baseSize = profile.baseSize * config.size;
+                this.size = baseSize * (Math.random() * 0.5 + 0.5);
+            }
+
+            update() {
+                const profile = elementProfiles[this.type];
+
+                // Apply forces with element-specific modifiers
+                this.vx += config.wind * 0.05;
+                this.vy += config.gravity * profile.gravityMod;
+
+                // Add turbulence for lava
+                if (this.type === 'lava') {
+                    this.vx += (Math.random() - 0.5) * 0.2;
+                }
+                
+                // Add fizzing motion for acid
+                if (this.type === 'acid') {
+                    this.vx += (Math.random() - 0.5) * 0.3;
+                    this.vy += (Math.random() - 0.5) * 0.1;
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Lifecycle
+                this.life -= this.decay;
+                
+                // Shrink
+                if(this.life < 0) this.life = 0;
+            }
+
+            draw(context) {
+                const profile = elementProfiles[this.type];
+                context.globalAlpha = this.life;
+
+                // Add glow effect if applicable
+                if (profile.hasGlow) {
+                    context.shadowBlur = 10 * this.life;
+                    context.shadowColor = profile.glowColor;
+                }
+
+                context.fillStyle = this.color;
+                context.beginPath();
+                context.arc(this.x, this.y, this.size * this.life, 0, Math.PI * 2);
+                context.fill();
+                
+                // Reset shadow/glow
+                context.shadowBlur = 0;
+                context.globalAlpha = 1.0;
+            }
+        }
+
+        // --- System Functions ---
+
+        function resize() {
+            // Get container dimensions directly
+            const rect = stage.getBoundingClientRect();
+            
+            // Force reasonable defaults if something goes wrong
+            width = rect.width || 800;
+            height = rect.height || 600;
+
+            // Ensure internal canvas resolution matches display size
+            canvas.width = width;
+            canvas.height = height;
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, width, height);
+
+            // Run Emitters
+            emitters.forEach(emitter => {
+                emitter.emit();
+                emitter.drawDebug(ctx); // Visualize emitter location
+            });
+
+            // Update & Draw Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.update();
+                p.draw(ctx);
+
+                if (p.life <= 0 || p.y > height + 50) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // --- Interaction ---
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            // Calculate scale factors in case CSS resizes the canvas
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            
+            emitters.push(new Emitter(x, y));
+            
+            // Visual feedback (HTML overlay)
+            const ripple = document.createElement('div');
+            ripple.style.left = e.clientX + 'px';
+            ripple.style.top = e.clientY + 'px';
+            
+            // Determine ripple color based on selected element
+            let rippleColor = 'border-blue-400';
+            if (config.element === 'lava') rippleColor = 'border-orange-500';
+            if (config.element === 'acid') rippleColor = 'border-green-400';
+
+            ripple.className = `fixed w-6 h-6 border-2 ${rippleColor} rounded-full animate-ping pointer-events-none z-50 transform -translate-x-1/2 -translate-y-1/2`;
+            document.body.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 1000);
+        });
+
+        // --- UI Binding ---
+
+        function bindControl(id, configKey) {
+            const input = document.getElementById(id);
+            const label = document.getElementById(`val-${id}`);
+            
+            input.addEventListener('input', (e) => {
+                const val = e.target.type === 'range' ? parseFloat(e.target.value) : e.target.value;
+                config[configKey] = val;
+                if(label) label.textContent = val;
+            });
+        }
+
+        // Bind new Element Type select
+        document.getElementById('element-type').addEventListener('change', (e) => {
+            config.element = e.target.value;
+        });
+
+        bindControl('gravity', 'gravity');
+        bindControl('velocity', 'velocity');
+        bindControl('wind', 'wind');
+        // bindControl('color', 'color'); // Removed
+        bindControl('size', 'size');
+        bindControl('spread', 'spread');
+
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            emitters = [];
+            particles = [];
+        });
+
+        document.getElementById('export-btn').addEventListener('click', () => {
+            const exportData = {
+                settings: config,
+                emitters: emitters.map(e => ({ x: e.x, y: e.y, id: e.id, type: e.elementType })),
+                timestamp: new Date().toISOString()
+            };
+            console.log("JSON Export:", JSON.stringify(exportData, null, 2));
+            
+            const toast = document.getElementById('toast');
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        });
+
+        // --- Initialization ---
+
+        // Force a resize immediately and then on window resize
+        resize();
+        window.addEventListener('resize', resize);
+        
+        // Start animation immediately
+        animate();
+        
+    </script>
+</body>
+</html>
